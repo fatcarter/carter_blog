@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.0.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16x16.png">
+  <link rel="mask-icon" href="/assets/images/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/assets/images/site.webmanifest">
+  <meta name="msapplication-config" content="/assets/images/browserconfig.xml">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.tea-childe.cn","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文包含TDengine的数据库、超级表、数据表等操作，并包含在SpringBoot项目中如何使用jdbc方式连接TDengine, 附带数据类型表格。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TDengine基础以及SpringBoot项目中使用简介">
+<meta property="og:url" content="http://www.tea-childe.cn/2022/03/10/tdengine-ji-chu-yi-ji-springboot-xiang-mu-zhong-shi-yong-jian-jie/index.html">
+<meta property="og:site_name" content="Carter&#39;s blog">
+<meta property="og:description" content="本文包含TDengine的数据库、超级表、数据表等操作，并包含在SpringBoot项目中如何使用jdbc方式连接TDengine, 附带数据类型表格。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-03-10T07:41:12.000Z">
+<meta property="article:modified_time" content="2022-03-10T07:41:12.000Z">
+<meta property="article:author" content="Carter">
+<meta property="article:tag" content="Database">
+<meta property="article:tag" content="TDengine">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://www.tea-childe.cn/2022/03/10/tdengine-ji-chu-yi-ji-springboot-xiang-mu-zhong-shi-yong-jian-jie/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>TDengine基础以及SpringBoot项目中使用简介 | Carter's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Carter's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">改变就是好事</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.tea-childe.cn/2022/03/10/tdengine-ji-chu-yi-ji-springboot-xiang-mu-zhong-shi-yong-jian-jie/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/assets/images/avatar.png">
+      <meta itemprop="name" content="Carter">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Carter's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          TDengine基础以及SpringBoot项目中使用简介
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-03-10 15:41:12" itemprop="dateCreated datePublished" datetime="2022-03-10T15:41:12+08:00">2022-03-10</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/TDengine/" itemprop="url" rel="index"><span itemprop="name">TDengine</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文包含<code>TDengine</code>的数据库、超级表、数据表等操作，并包含在SpringBoot项目中如何使用jdbc方式连接<code>TDengine</code>, 附带数据类型表格。</p>
+<span id="more"></span>
+
+<h2 id="创建数据库"><a href="#创建数据库" class="headerlink" title="创建数据库"></a>创建数据库</h2><figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> DATABASE my_db KEEP <span class="number">30</span> <span class="keyword">day</span> <span class="number">10</span> BLOCKS <span class="number">6</span> <span class="keyword">PRECISION</span> <span class="string">'ns'</span> <span class="keyword">UPDATE</span> <span class="number">2</span></span><br></pre></td></tr></tbody></table></figure>
+
+<ol>
+<li>KEEP 表示当前数据库数据需要保留的天数，超过天数的数据将被删除</li>
+<li>DAY 表示每10天生成一个数据文件</li>
+<li>BLOCKS表示内存块数为6, <a target="_blank" rel="noopener" href="https://www.taosdata.com/docs/cn/v2.0/architecture#sharding">解释</a></li>
+<li>PRECISION代表EpochTime表示的时间精度（从1970年开始到现在的纳秒数），支持纳秒(ns), 微秒(us),毫秒(ms), 默认值为毫秒, 指定其他精度时, 插入数据时需要特别注意精度</li>
+<li>UPDATE设为0时，表示不允许更新数据，后发送的相同时间戳的数据会被直接丢弃；</li>
+<li>UPDATE设为1时，表示更新全部列数据，即如果更新一个数据行，其中某些列没有提供取值，那么这些列会被设为 NULL；</li>
+<li>UPDATE设为2时，表示支持更新部分列数据，即如果更新一个数据行，其中某些列没有提供取值，那么这些列会保持原有数据行中的对应值；</li>
+<li>更多关于UPDATE参数的用法，请参考<a target="_blank" rel="noopener" href="https://www.taosdata.com/cn/documentation/faq">FAQ</a></li>
+</ol>
+<h2 id="超级表"><a href="#超级表" class="headerlink" title="超级表"></a>超级表</h2><figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> STABLE device_message (</span><br><span class="line">	ts <span class="type">TIMESTAMP</span>,</span><br><span class="line">	device_sn NCAHR(<span class="number">32</span>),</span><br><span class="line">	payload <span class="type">NCHAR</span>(<span class="number">2048</span>)</span><br><span class="line">) TAGS （</span><br><span class="line">  project_id <span class="type">int</span>,</span><br><span class="line">  tag <span class="type">NCHAR</span>(<span class="number">32</span>)</span><br><span class="line">）</span><br></pre></td></tr></tbody></table></figure>
+
+<ol>
+<li>表的第一个字段必须是 TIMESTAMP，并且系统自动将其设为主键；</li>
+<li>表名最大长度为 192；</li>
+<li>子表名只能由字母、数字和下划线组成，且不能以数字开头，不区分大小写</li>
+<li>表的每行长度不能超过 16k 个字符;（注意：每个 BINARY/NCHAR 类型的列还会额外占用 2 个字节的存储位置）</li>
+<li>TDengine相比于MySQL增加了超级表的概念，创建时使用<code>STABLE</code>关键字创建；</li>
+<li>创建超级表时需要指定<code>TAGS</code>，<code>TAGS</code>中的<font color="red">字段不能与表内字段重复</font>, 并且<code>TAGS</code>中的字段值只与子表关联，用于标记子表的标签</li>
+<li>TAGS 列的数据类型不能是 timestamp 类型；（从 2.1.3.0 版本开始，TAGS 列中支持使用 timestamp 类型，但需注意在 TAGS 中的 timestamp 列写入数据时需要提供给定值，而暂不支持四则运算，例如 <code>NOW + 10s</code> 这类表达式）</li>
+</ol>
+<h2 id="创建数据表"><a href="#创建数据表" class="headerlink" title="创建数据表"></a>创建数据表</h2><figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> tb_name <span class="keyword">USING</span> stb_name TAGS (tag_value1, ...);</span><br></pre></td></tr></tbody></table></figure>
+
+<p>以指定的超级表为模板，指定 TAGS 的值来创建数据表。</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> tb_name1 <span class="keyword">USING</span> stb_name TAGS (tag_value1, ...)  tb_name2 <span class="keyword">USING</span> stb_name TAGS (tag_value2, ...) ...;</span><br></pre></td></tr></tbody></table></figure>
+
+<p>以更快的速度批量创建大量数据表</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> tb_name;</span><br></pre></td></tr></tbody></table></figure>
+
+<p>显示一个数据表的创建语句，常用于数据库迁移。对一个已经存在的数据表，返回其创建语句；在另一个集群中执行该语句，就能得到一个结构完全相同的数据表。</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">DESCRIBE</span> tb_name;</span><br></pre></td></tr></tbody></table></figure>
+
+<p>获取表的结构信息</p>
+<h2 id="超级表STABLE中的TAG管理"><a href="#超级表STABLE中的TAG管理" class="headerlink" title="超级表STABLE中的TAG管理"></a>超级表STABLE中的TAG管理</h2><figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> STABLE stb_name <span class="keyword">ADD</span> TAG new_tag_name tag_type;</span><br></pre></td></tr></tbody></table></figure>
+
+<p>给超级表添加标签，并指定新的标签类型</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> STABLE stb_name <span class="keyword">DROP</span> TAG tag_name;</span><br></pre></td></tr></tbody></table></figure>
+
+<p>删除超级表的一个标签，从超级表删除某个标签后，该超级表下的所有子表也会自动删除该标签。</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 修改标签名称</span></span><br><span class="line"><span class="keyword">ALTER</span> STABLE stb_name CHANGE TAG old_tag_name new_tag_name;</span><br></pre></td></tr></tbody></table></figure>
+
+<p>修改超级表的标签名，从超级表修改某个标签名后，该超级表下的所有子表也会自动更新该标签名。</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 修改标签列宽度</span></span><br><span class="line"><span class="keyword">ALTER</span> STABLE stb_name MODIFY TAG tag_name data_type(length); </span><br></pre></td></tr></tbody></table></figure>
+
+<p>如果标签的类型是可变长格式（BINARY 或 NCHAR），那么可以使用此指令修改其宽度（只能改大，不能改小）。（2.1.3.0 版本新增）</p>
+<h2 id="数据写入"><a href="#数据写入" class="headerlink" title="数据写入"></a>数据写入</h2><figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span></span><br><span class="line">    tb_name</span><br><span class="line">        [<span class="keyword">USING</span> stb_name [(tag1_name, ...)] TAGS (tag1_value, ...)]</span><br><span class="line">        [(field1_name, ...)]</span><br><span class="line">        <span class="keyword">VALUES</span> (field1_value, ...) [(field1_value2, ...) ...] <span class="operator">|</span> FILE csv_file_path</span><br><span class="line">    [tb2_name</span><br><span class="line">        [<span class="keyword">USING</span> stb_name [(tag1_name, ...)] TAGS (tag1_value, ...)]</span><br><span class="line">        [(field1_name, ...)]</span><br><span class="line">        <span class="keyword">VALUES</span> (field1_value, ...) [(field1_value2, ...) ...] <span class="operator">|</span> FILE csv_file_path</span><br><span class="line">    ...];</span><br></pre></td></tr></tbody></table></figure>
+
+<h3 id="重点示例"><a href="#重点示例" class="headerlink" title="重点示例"></a>重点示例</h3><h4 id="单行或多行插入"><a href="#单行或多行插入" class="headerlink" title="单行或多行插入"></a>单行或多行插入</h4><figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> d1001 <span class="keyword">VALUES</span> (NOW, <span class="number">10.2</span>, <span class="number">219</span>, <span class="number">0.32</span>);</span><br><span class="line"><span class="comment">-- OR</span></span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> d1001 <span class="keyword">VALUES</span> (<span class="string">'2021-07-13 14:06:32.272'</span>, <span class="number">10.2</span>, <span class="number">219</span>, <span class="number">0.32</span>) (<span class="number">1626164208000</span>, <span class="number">10.15</span>, <span class="number">217</span>, <span class="number">0.33</span>);</span><br></pre></td></tr></tbody></table></figure>
+
+<p>指定已经创建好的数据子表的表名，并通过 <code>VALUES</code> 关键字提供一行或多行数据，即可向数据库写入这些数据。</p>
+<p><strong>注意：</strong><br>在第二个例子中两行记录的首列时间戳使用了不同格式的写法，其中字符串格式是不受所在数据库时间精度(建表时指定的<code>PRECISION</code>字段)的影响的，反之长整型则会受数据库时间戳设置影响。</p>
+<h4 id="插入记录时自动建表"><a href="#插入记录时自动建表" class="headerlink" title="插入记录时自动建表"></a>插入记录时自动建表</h4><p>如果写数据时不确定数据表是否存在，可以在写入数据时使用自动建表语法来创建表，若该表已存在则不会建立新表。</p>
+<p>自动建表时，要求必须以超级表为模板，并写明数据表的 <code>TAGS</code>取值。例如：</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> d21001 <span class="keyword">USING</span> meters TAGS (<span class="string">'Beijing.Chaoyang'</span>, <span class="number">2</span>) <span class="keyword">VALUES</span> (<span class="string">'2021-07-13 14:06:32.272'</span>, <span class="number">10.2</span>, <span class="number">219</span>, <span class="number">0.32</span>);</span><br></pre></td></tr></tbody></table></figure>
+
+<p>也可以在自动建表时，只是指定部分 TAGS 列的取值，未被指定的 TAGS 列将置为 NULL。例如：</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> d21001 <span class="keyword">USING</span> meters (groupId) TAGS (<span class="number">2</span>) <span class="keyword">VALUES</span> (<span class="string">'2021-07-13 14:06:33.196'</span>, <span class="number">10.15</span>, <span class="number">217</span>, <span class="number">0.33</span>);</span><br></pre></td></tr></tbody></table></figure>
+
+<p>自动建表语法也支持在一条语句中向多个表插入记录。例如：</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> </span><br><span class="line">d21001 <span class="keyword">USING</span> meters           TAGS (<span class="string">'Beijing.Chaoyang'</span>, <span class="number">2</span>)  <span class="keyword">VALUES</span> (<span class="string">'2021-07-13 14:06:34.630'</span>, <span class="number">10.2</span>, <span class="number">219</span>, <span class="number">0.32</span>)</span><br><span class="line">d21002 <span class="keyword">USING</span> meters (groupId) TAGS (<span class="number">2</span>)                      <span class="keyword">VALUES</span> (<span class="string">'2021-07-13 14:06:34.255'</span>, <span class="number">10.15</span>, <span class="number">217</span>, <span class="number">0.33</span>)           </span><br><span class="line">d21003 <span class="keyword">USING</span> meters (groupId) TAGS (<span class="number">2</span>) (ts, <span class="keyword">current</span>, phase) <span class="keyword">VALUES</span> (<span class="string">'2021-07-13 14:06:34.255'</span>, <span class="number">10.27</span>, <span class="number">0.31</span>);</span><br></pre></td></tr></tbody></table></figure>
+
+<p><strong>说明：</strong>在 2.0.20.5 版本之前，在使用自动建表语法并指定列时，子表的列名必须紧跟在子表名称后面，而不能如例子里那样放在 TAGS 和 VALUES 之间。从 2.0.20.5 版本开始，两种写法都可以，但不能在一条 SQL 语句中混用，否则会报语法错误。</p>
+<p>其他高级插入用法请查看<a target="_blank" rel="noopener" href="https://www.taosdata.com/docs/cn/v2.0/taos-sql">官网文档</a></p>
+<h2 id="数据查询"><a href="#数据查询" class="headerlink" title="数据查询"></a>数据查询</h2><figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> select_expr [, select_expr ...]</span><br><span class="line">    <span class="keyword">FROM</span> {tb_name_list}</span><br><span class="line">    [<span class="keyword">WHERE</span> where_condition]</span><br><span class="line">    [SESSION(ts_col, tol_val)]</span><br><span class="line">    [STATE_WINDOW(col)]</span><br><span class="line">    [<span class="type">INTERVAL</span>(interval_val [, interval_offset]) [SLIDING sliding_val]]</span><br><span class="line">    [FILL(fill_mod_and_val)]</span><br><span class="line">    [<span class="keyword">GROUP</span> <span class="keyword">BY</span> col_list]</span><br><span class="line">    [<span class="keyword">ORDER</span> <span class="keyword">BY</span> col_list { <span class="keyword">DESC</span> <span class="operator">|</span> <span class="keyword">ASC</span> }]</span><br><span class="line">    [SLIMIT limit_val [SOFFSET offset_val]]</span><br><span class="line">    [LIMIT limit_val [<span class="keyword">OFFSET</span> offset_val]]</span><br><span class="line">    [<span class="operator">&gt;&gt;</span> export_file];</span><br></pre></td></tr></tbody></table></figure>
+
+<p>用法与<code>MySQL</code>基本一致</p>
+<h3 id="通配符"><a href="#通配符" class="headerlink" title="通配符"></a>通配符</h3><p>通配符<code>*</code>号的用法与<code>MySQL</code>一致, 用于指代全部字段, 但是在查询<code>数据表</code>时结果中只包含普通列(不包含<code>TAGS</code>列), 反之针对超级表时会返回所有列.</p>
+<p>在使用SQL函数来进行查询的过程中，部分SQL函数支持通配符操作。其中的区别在于： <code>count(*)</code>函数只返回一列。<code>first</code>、<code>last</code>、<code>last_row</code>函数则是返回全部列。</p>
+<figure class="highlight shell"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">taos&gt; </span><span class="language-bash">SELECT COUNT(*) FROM d1001;</span></span><br><span class="line">       count(*)        |</span><br><span class="line">========================</span><br><span class="line">                     3 |</span><br><span class="line">Query OK, 1 row(s) in set (0.001035s)</span><br><span class="line"><span class="meta">taos&gt; </span><span class="language-bash"></span></span><br><span class="line"><span class="language-bash">taos&gt;</span> </span><br><span class="line"><span class="meta">taos&gt; </span><span class="language-bash"></span></span><br><span class="line"><span class="language-bash">taos&gt;</span> </span><br><span class="line"><span class="meta">taos&gt; </span><span class="language-bash"></span></span><br><span class="line"><span class="language-bash">taos&gt; SELECT FIRST(*) FROM d1001;</span></span><br><span class="line">        first(ts)        |    first(current)    | first(voltage) |     first(phase)     |</span><br><span class="line">=========================================================================================</span><br><span class="line"> 2018-10-03 14:38:05.000 |             10.30000 |            219 |              0.31000 |</span><br><span class="line">Query OK, 1 row(s) in set (0.000849s)</span><br></pre></td></tr></tbody></table></figure>
+
+<h2 id="小技巧"><a href="#小技巧" class="headerlink" title="小技巧"></a>小技巧</h2><h3 id="TAOS-SQL中特殊关键词"><a href="#TAOS-SQL中特殊关键词" class="headerlink" title="TAOS SQL中特殊关键词"></a>TAOS SQL中特殊关键词</h3><blockquote>
+<p>TBNAME： 在超级表查询中可视为一个特殊的标签，代表查询涉及的子表名<br>_c0: 表示表（超级表）的第一列</p>
+</blockquote>
+<h3 id="从2-3-0-0版本开始，条件过滤开始支持正则表达式，关键字match-x2F-nmatch，不区分大小写。"><a href="#从2-3-0-0版本开始，条件过滤开始支持正则表达式，关键字match-x2F-nmatch，不区分大小写。" class="headerlink" title="从2.3.0.0版本开始，条件过滤开始支持正则表达式，关键字match/nmatch，不区分大小写。"></a>从<code>2.3.0.0</code>版本开始，条件过滤开始支持正则表达式，关键字match/nmatch，不区分大小写。</h3><ol>
+<li><p><strong>语法</strong></p>
+<p>WHERE (column|tbname) <strong>match/MATCH/nmatch/NMATCH</strong> <em>regex</em></p>
+<p><strong>正则表达式规范</strong></p>
+<p>确保使用的正则表达式符合POSIX的规范，具体规范内容可参见<a target="_blank" rel="noopener" href="https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap09.html">Regular Expressions</a></p>
+<p><strong>使用限制</strong></p>
+<p>只能针对表名（即 tbname 筛选）、binary/nchar类型标签值进行正则表达式过滤，不支持普通列的过滤。</p>
+<p>正则匹配字符串长度不能超过 128 字节。可以通过参数 <em>maxRegexStringLen</em> 设置和调整最大允许的正则匹配字符串，该参数是客户端配置参数，需要重启才能生效。</p>
+</li>
+</ol>
+<h3 id="多表关联查询"><a href="#多表关联查询" class="headerlink" title="多表关联查询"></a>多表关联查询</h3><p>大部分与<code>MySQL</code>一致, 但是要求<code>join</code>时数据表之间只能使用时间戳关联, 超级表还可以使用<code>TAGS</code>中的字段;</p>
+<h3 id="其他查询"><a href="#其他查询" class="headerlink" title="其他查询"></a>其他查询</h3><p>其他更多查询, 以及函数支持, 参考<a target="_blank" rel="noopener" href="https://www.taosdata.com/docs/cn/v2.0/taos-sql#sql-1">此网址</a></p>
+<h2 id="Java连接示例"><a href="#Java连接示例" class="headerlink" title="Java连接示例"></a>Java连接示例</h2><h3 id="Maven依赖配置"><a href="#Maven依赖配置" class="headerlink" title="Maven依赖配置"></a>Maven依赖配置</h3><figure class="highlight xml"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.taosdata.jdbc<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>taos-jdbcdriver<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">version</span>&gt;</span>2.0.37<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br></pre></td></tr></tbody></table></figure>
+
+<p><strong>注意:</strong> 在依赖此<code>jar</code>包后如果使用<code>Resultful Jdbc</code>访问数据库, 在启动服务时可能出现<code>java.lang.ClassNotFoundException: org.apache.commons.logging.LogFactory</code>异常, 目前不知道是何种原因引起的, 会在某些机器上出现, 目前解决办法是将系统内的<code>jdk</code>全部卸载干净, 重新安装.</p>
+<h3 id="SpringBoot项目配置"><a href="#SpringBoot项目配置" class="headerlink" title="SpringBoot项目配置"></a>SpringBoot项目配置</h3><figure class="highlight properties"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring.datasource.druid.driver-class-name</span>=<span class="string">com.taosdata.jdbc.TSDBDriver</span></span><br><span class="line"><span class="attr">spring.datasource.druid.url</span>=<span class="string">jdbc:TAOS://172.16.9.200:6030/location_gps</span></span><br><span class="line"><span class="attr">spring.datasource.druid.username</span>=<span class="string">tdsa</span></span><br><span class="line"><span class="attr">spring.datasource.druid.password</span>=<span class="string">tdsa#2014</span></span><br><span class="line"><span class="attr">spring.datasource.druid.validation-query</span>=<span class="string">SELECT SERVER_STATUS()</span></span><br></pre></td></tr></tbody></table></figure>
+
+<p>上述配置使用了<code>druid</code>连接池;</p>
+<ol>
+<li><code>driver-class-name</code>指定了连接数据库的驱动类, 此类型使用<code>JNI</code>方式调用本地系统库函数, 所以使用<code>JNI</code>方式连接数据库时必须安装本地<a target="_blank" rel="noopener" href="https://taosdata.com/getting-started#-3">客户端</a></li>
+<li><code>url</code>指定连接数据库的<code>jdbc</code>语法, <code>JNI</code>方式需要使用<code>jdbc:TAOS://</code>,Restful方式需要使用<code>jdbc:TAOS-RS://</code>,并且<code>JNI</code>方式与<code>Restful</code>方式使用的端口不同, 其中<code>JNI</code>方式默认使用<code>6030</code>端口, <code>Restful</code>方式默认使用<code>6041</code>端口,  <font color="green">具体服务端口需要咨询运维人员</font></li>
+<li><code>username</code> 连接数据库使用的用户名</li>
+<li><code>password</code>连接数据库使用的密码</li>
+<li><code>validation-query</code>代表连接池检测当前连接是否可用的<code>SQL</code>语句, 该配置的值为<code>TDengine</code>数据库特有的函数.</li>
+</ol>
+<h3 id="集成Mybatis-Plus"><a href="#集成Mybatis-Plus" class="headerlink" title="集成Mybatis-Plus"></a>集成Mybatis-Plus</h3><p>需要实现自定义的<code>BaseMapper</code>, 默认配置的<code>BaseMapper</code>无法使用, 其他使用方式与<code>MySQL</code>方式一致</p>
+<p>例如:</p>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">ImeiTrackMapper</span> <span class="keyword">extends</span> <span class="title class_">BaseMapper</span>&lt;ImeiTrack&gt; {</span><br><span class="line">    <span class="meta">@Insert("insert into c_imei_track_${track.imei} \n" +</span></span><br><span class="line"><span class="meta">            "using d_imei_track TAGS (\"${track.imei}\")\n" +</span></span><br><span class="line"><span class="meta">            "    values (${track.ts}, ${track.lon},${track.lat})")</span></span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">insertTrack</span><span class="params">(<span class="meta">@Param("track")</span> ImeiTrack track)</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h2 id="PS"><a href="#PS" class="headerlink" title="PS"></a>PS</h2><ol>
+<li>TDengine 对 SQL 语句中的英文字符不区分大小写，自动转化为小写执行。因此用户大小写敏感的字符串及密码，需要使用单引号将字符串引起来。</li>
+<li><strong>注意</strong>，虽然 Binary 类型在底层存储上支持字节型的二进制字符，但不同编程语言对二进制数据的处理方式并不保证一致，因此建议在 Binary 类型中只存储 ASCII 可见字符，而避免存储不可见字符。多字节的数据，例如中文字符，则需要使用 nchar 类型进行保存。如果强行使用 Binary 类型保存中文字符，虽然有时也能正常读写，但并不带有字符集信息，很容易出现数据乱码甚至数据损坏等情况。</li>
+<li><strong>注意</strong>，SQL语句中的数值类型将依据是否存在小数点，或使用科学计数法表示，来判断数值类型是否为整型或者浮点型，因此在使用时要注意相应类型越界的情况。例如，9999999999999999999会认为超过长整型的上边界而溢出，而9999999999999999999.0会被认为是有效的浮点数。</li>
+</ol>
+<h3 id="支持的数据类型"><a href="#支持的数据类型" class="headerlink" title="支持的数据类型"></a>支持的数据类型</h3><table>
+<thead>
+<tr>
+<th>#</th>
+<th align="center"><strong>类型</strong></th>
+<th><strong>Bytes</strong></th>
+<th><strong>说明</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td align="center">TIMESTAMP</td>
+<td>8</td>
+<td>时间戳。缺省精度毫秒，可支持微秒和纳秒。从格林威治时间 1970-01-01 00:00:00.000 (UTC/GMT) 开始，计时不能早于该时间。（从 2.0.18.0 版本开始，已经去除了这一时间范围限制）（从 2.1.5.0 版本开始支持纳秒精度）</td>
+</tr>
+<tr>
+<td>2</td>
+<td align="center">INT</td>
+<td>4</td>
+<td>整型，范围 [-2^31+1, 2^31-1], -2^31 用作 NULL</td>
+</tr>
+<tr>
+<td>3</td>
+<td align="center">BIGINT</td>
+<td>8</td>
+<td>长整型，范围 [-2^63+1, 2^63-1], -2^63 用于 NULL</td>
+</tr>
+<tr>
+<td>4</td>
+<td align="center">FLOAT</td>
+<td>4</td>
+<td>浮点型，有效位数 6-7，范围 [-3.4E38, 3.4E38]</td>
+</tr>
+<tr>
+<td>5</td>
+<td align="center">DOUBLE</td>
+<td>8</td>
+<td>双精度浮点型，有效位数 15-16，范围 [-1.7E308, 1.7E308]</td>
+</tr>
+<tr>
+<td>6</td>
+<td align="center">BINARY</td>
+<td>自定义</td>
+<td>记录单字节字符串，建议只用于处理 ASCII 可见字符，中文等多字节字符需使用 nchar。理论上，最长可以有 16374 字节。binary 仅支持字符串输入，字符串两端需使用单引号引用。使用时须指定大小，如 binary(20) 定义了最长为 20 个单字节字符的字符串，每个字符占 1 byte 的存储空间，总共固定占用 20 bytes 的空间，此时如果用户字符串超出 20 字节将会报错。对于字符串内的单引号，可以用转义字符反斜线加单引号来表示，即 <code>\’</code>。</td>
+</tr>
+<tr>
+<td>7</td>
+<td align="center">SMALLINT</td>
+<td>2</td>
+<td>短整型， 范围 [-32767, 32767], -32768 用于 NULL</td>
+</tr>
+<tr>
+<td>8</td>
+<td align="center">TINYINT</td>
+<td>1</td>
+<td>单字节整型，范围 [-127, 127], -128 用于 NULL</td>
+</tr>
+<tr>
+<td>9</td>
+<td align="center">BOOL</td>
+<td>1</td>
+<td>布尔型，{true, false}</td>
+</tr>
+<tr>
+<td>10</td>
+<td align="center">NCHAR</td>
+<td>自定义</td>
+<td>记录包含多字节字符在内的字符串，如中文字符。每个 nchar 字符占用 4 bytes 的存储空间。字符串两端使用单引号引用，字符串内的单引号需用转义字符 <code>\’</code>。nchar 使用时须指定字符串大小，类型为 nchar(10) 的列表示此列的字符串最多存储 10 个 nchar 字符，会固定占用 40 bytes 的空间。如果用户字符串长度超出声明长度，将会报错。</td>
+</tr>
+<tr>
+<td>11</td>
+<td align="center">JSON</td>
+<td></td>
+<td>json数据类型， 只有tag类型可以是json格式<a target="_blank" rel="noopener" href="https://www.taosdata.com/docs/cn/v2.0/taos-sql#json">使用说明</a></td>
+</tr>
+</tbody></table>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Database/" rel="tag"># Database</a>
+              <a href="/tags/TDengine/" rel="tag"># TDengine</a>
+          </div>
+
+        
+
+
+        
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-number">1.</span> <span class="nav-text">创建数据库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B6%85%E7%BA%A7%E8%A1%A8"><span class="nav-number">2.</span> <span class="nav-text">超级表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E6%95%B0%E6%8D%AE%E8%A1%A8"><span class="nav-number">3.</span> <span class="nav-text">创建数据表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B6%85%E7%BA%A7%E8%A1%A8STABLE%E4%B8%AD%E7%9A%84TAG%E7%AE%A1%E7%90%86"><span class="nav-number">4.</span> <span class="nav-text">超级表STABLE中的TAG管理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E5%86%99%E5%85%A5"><span class="nav-number">5.</span> <span class="nav-text">数据写入</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E7%82%B9%E7%A4%BA%E4%BE%8B"><span class="nav-number">5.1.</span> <span class="nav-text">重点示例</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8D%95%E8%A1%8C%E6%88%96%E5%A4%9A%E8%A1%8C%E6%8F%92%E5%85%A5"><span class="nav-number">5.1.1.</span> <span class="nav-text">单行或多行插入</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%8F%92%E5%85%A5%E8%AE%B0%E5%BD%95%E6%97%B6%E8%87%AA%E5%8A%A8%E5%BB%BA%E8%A1%A8"><span class="nav-number">5.1.2.</span> <span class="nav-text">插入记录时自动建表</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E6%9F%A5%E8%AF%A2"><span class="nav-number">6.</span> <span class="nav-text">数据查询</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%9A%E9%85%8D%E7%AC%A6"><span class="nav-number">6.1.</span> <span class="nav-text">通配符</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E6%8A%80%E5%B7%A7"><span class="nav-number">7.</span> <span class="nav-text">小技巧</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TAOS-SQL%E4%B8%AD%E7%89%B9%E6%AE%8A%E5%85%B3%E9%94%AE%E8%AF%8D"><span class="nav-number">7.1.</span> <span class="nav-text">TAOS SQL中特殊关键词</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%8E2-3-0-0%E7%89%88%E6%9C%AC%E5%BC%80%E5%A7%8B%EF%BC%8C%E6%9D%A1%E4%BB%B6%E8%BF%87%E6%BB%A4%E5%BC%80%E5%A7%8B%E6%94%AF%E6%8C%81%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F%EF%BC%8C%E5%85%B3%E9%94%AE%E5%AD%97match-x2F-nmatch%EF%BC%8C%E4%B8%8D%E5%8C%BA%E5%88%86%E5%A4%A7%E5%B0%8F%E5%86%99%E3%80%82"><span class="nav-number">7.2.</span> <span class="nav-text">从2.3.0.0版本开始，条件过滤开始支持正则表达式，关键字match&#x2F;nmatch，不区分大小写。</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%9A%E8%A1%A8%E5%85%B3%E8%81%94%E6%9F%A5%E8%AF%A2"><span class="nav-number">7.3.</span> <span class="nav-text">多表关联查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%B6%E4%BB%96%E6%9F%A5%E8%AF%A2"><span class="nav-number">7.4.</span> <span class="nav-text">其他查询</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Java%E8%BF%9E%E6%8E%A5%E7%A4%BA%E4%BE%8B"><span class="nav-number">8.</span> <span class="nav-text">Java连接示例</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Maven%E4%BE%9D%E8%B5%96%E9%85%8D%E7%BD%AE"><span class="nav-number">8.1.</span> <span class="nav-text">Maven依赖配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SpringBoot%E9%A1%B9%E7%9B%AE%E9%85%8D%E7%BD%AE"><span class="nav-number">8.2.</span> <span class="nav-text">SpringBoot项目配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%9B%86%E6%88%90Mybatis-Plus"><span class="nav-number">8.3.</span> <span class="nav-text">集成Mybatis-Plus</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#PS"><span class="nav-number">9.</span> <span class="nav-text">PS</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%94%AF%E6%8C%81%E7%9A%84%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B"><span class="nav-number">9.1.</span> <span class="nav-text">支持的数据类型</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Carter"
+      src="/assets/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Carter</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">1</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/fatcarter" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;fatcarter" rel="noopener" target="_blank">GitHub</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+  <div class="beian" style="display:inline-block;margin:0 auto;">
+    <a target="_blank" href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=23010302001369" style="display:inline-block;text-decoration:none;height:20px;line-height:20px;">
+      <img src="/assets/beian/beian_icon.png" style="float:left;"/>
+      <p style="float:left;height:20px;line-height:20px;margin: 0px 0px 0px 5px; color:#939393;">黑公网安备 23010302001369号</p>
+    </a>
+    <a target="_blank" href="https://beian.miit.gov.cn" style="display:inline-block;text-decoration:none;height:20px;line-height:20px;">
+      <p style="float:left;height:20px;line-height:20px;margin: 0px 0px 0px 5px; color:#939393;">黑ICP备2021003364号-2</p>
+    </a>
+  </div>
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Carter</span>
+</div>
+  <div class="powered-by"  style="display:inline-block">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
